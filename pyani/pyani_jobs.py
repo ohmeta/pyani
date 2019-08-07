@@ -44,7 +44,7 @@ class Job:
     """Objects in this class represent individual jobs to be run, with a list
     of dependencies (jobs that must be run first).
     """
-    def __init__(self, name, command, queue=None):
+    def __init__(self, name, command, index, queue=None):
         """Instantiates a Job object.
 
         - name           String describing the job (uniquely)
@@ -55,6 +55,7 @@ class Job:
         self.queue = queue               # The SGE queue to run the job under
         self.command = command           # Command line to run for this job
         self.script = command
+        self.index = index
         self.scriptPath = None           # Will hold path to the script file
         self.dependencies = []           # List of jobs to be completed first
         self.submitted = False           # Flag: is job submitted?

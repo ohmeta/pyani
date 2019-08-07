@@ -53,8 +53,8 @@ def generate_nucmer_jobs(
     )
     joblist = []
     for idx, ncmd in enumerate(ncmds):
-        njob = pyani_jobs.Job("%s_%06d-n" % (jobprefix, idx), ncmd)
-        fjob = pyani_jobs.Job("%s_%06d-f" % (jobprefix, idx), fcmds[idx])
+        njob = pyani_jobs.Job("%s_%d-n" % (jobprefix, idx), ncmd[0], ncmd[1])
+        fjob = pyani_jobs.Job("%s_%d-f" % (jobprefix, idx), fcmds[idx][0], fcmds[idx][1])
         fjob.add_dependency(njob)
         # joblist.append(njob)  # not required: dependency in fjob
         joblist.append(fjob)
@@ -89,10 +89,10 @@ def generate_nucmer_commands(
     for idx, fname1 in enumerate(filenames[:-1]):
         for fname2 in filenames[idx + 1 :]:
             ncmd, dcmd = construct_nucmer_cmdline(
-                fname1, fname2, outdir, nucmer_exe, filter_exe, maxmatch
+                fname1, fname2, outdir, str(idx), nucmer_exe, filter_exe, maxmatch
             )
-            nucmer_cmdlines.append(ncmd)
-            delta_filter_cmdlines.append(dcmd)
+            nucmer_cmdlines.append((ncmd, str(idx)))
+            delta_filter_cmdlines.append((dcmd, str(idx)))
     return (nucmer_cmdlines, delta_filter_cmdlines)
 
 
@@ -102,6 +102,7 @@ def construct_nucmer_cmdline(
     fname1,
     fname2,
     outdir=".",
+    idx="",
     nucmer_exe=pyani_config.NUCMER_DEFAULT,
     filter_exe=pyani_config.FILTER_DEFAULT,
     maxmatch=False,
@@ -118,10 +119,13 @@ def construct_nucmer_cmdline(
     - fname1 - query FASTA filepath
     - fname2 - subject FASTA filepath
     - outdir - path to output directory
+    - idx - path to output directory
     - maxmatch - Boolean flag indicating whether to use NUCmer's -maxmatch
     option. If not, the -mum option is used instead
     """
-    outsubdir = os.path.join(outdir, pyani_config.ALIGNDIR["ANIm"])
+    outsubdir = os.path.join(os.path.join(outdir, pyani_config.ALIGNDIR["ANIm"]), idx)
+    if not os.path.exists(outsubdir):
+        os.mkdir(outsubdir)
     outprefix = os.path.join(
         outsubdir,
         "%s_vs_%s"
@@ -185,7 +189,10 @@ def process_deltadir(delta_dir, org_lengths, logger=None):
     """
     # Process directory to identify input files - as of v0.2.4 we use the
     # .filter files that result from delta-filter (1:1 alignments)
-    deltafiles = pyani_files.get_input_files(delta_dir, ".filter")
+
+    deltafiles = []
+    for sub_dir in os.listdir(delta_dir):
+        deltafiles += pyani_files.get_input_files(os.path.join(delta_dir, sub_dir), ".filter")
 
     # Hold data in ANIResults object
     results = ANIResults(list(org_lengths.keys()), "ANIm")

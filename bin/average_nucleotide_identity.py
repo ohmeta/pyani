@@ -559,6 +559,7 @@ def calculate_anim(infiles, org_lengths):
             logger.info("Running jobs with SGE")
             logger.info("Jobarray group size set to %d", args.sgegroupsize)
             run_sge.run_dependency_graph(
+                args.outdirname,
                 joblist,
                 logger=logger,
                 jgprefix=args.jobprefix,
@@ -713,7 +714,7 @@ def unified_anib(infiles, org_lengths):
             else:
                 logger.info("All multiprocessing jobs complete.")
         else:
-            run_sge.run_dependency_graph(jobgraph, logger=logger)
+            run_sge.run_dependency_graph(args.outdirname, jobgraph, logger=logger)
             logger.info("Running jobs with SGE")
     else:
         # Import fragment lengths from JSON
@@ -844,7 +845,6 @@ def subsample_input(infiles):
 
 # Run as script
 if __name__ == "__main__":
-
     # Parse command-line
     args = parse_cmdline()
 

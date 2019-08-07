@@ -59,7 +59,7 @@ def compile_jobgroups_from_joblist(joblist, jgprefix, sgegroupsize):
 
 
 # Run a job dependency graph, with SGE
-def run_dependency_graph(jobgraph, logger=None, jgprefix="ANIm_SGE_JG",
+def run_dependency_graph(jobdir, jobgraph, logger=None, jgprefix="ANIm_SGE_JG",
                          sgegroupsize=10000, sgeargs=None):
     """Creates and runs GridEngine scripts for jobs based on the passed
     jobgraph.
@@ -106,7 +106,7 @@ def run_dependency_graph(jobgraph, logger=None, jgprefix="ANIm_SGE_JG",
     logger.info("Jobs passed to scheduler in order:")
     for job in joblist:
         logger.info("\t%s" % job.name)
-    build_and_submit_jobs(os.curdir, joblist, sgeargs)
+    build_and_submit_jobs(jobdir, joblist, sgeargs)
     logger.info("Waiting for SGE-submitted jobs to finish (polling)")
     for job in joblist:
         job.wait()
@@ -124,7 +124,7 @@ def populate_jobset(job, jobset, depth):
     return jobset
 
 
-def build_directories(root_dir):
+def build_directories(root_dir, jobs):
     """Constructs the subdirectories output, stderr, stdout, and jobs in the
     passed root directory. These subdirectories have the following roles:
 
@@ -138,12 +138,25 @@ def build_directories(root_dir):
     # If the root directory doesn't exist, create it
     if not os.path.exists(root_dir):
         os.mkdir(root_dir)
+    sge_dir = os.path.join(root_dir, "sge")
+    if not os.path.exists(sge_dir):
+        os.mkdir(sge_dir)
 
     # Create subdirectories
-    directories = [os.path.join(root_dir, subdir) for subdir in
-                   ("output", "stderr", "stdout", "jobs")]
-    for dirname in directories:
-        os.makedirs(dirname, exist_ok=True)
+    jobdir = os.path.join(sge_dir, "jobs")
+    stdout_dir = os.path.join(sge_dir, "stdout")
+    stderr_dir = os.path.join(sge_dir, "stderr")
+    os.makedirs(jobdir, exist_ok=True)
+    os.makedirs(stdout_dir, exist_ok=True)
+    os.makedirs(stderr_dir, exist_ok=True)
+
+    for job in jobs:
+        sub_job_dir = os.path.join(jobdir, job.index)
+        sub_out_dir = os.path.join(stdout_dir, job.index)
+        sub_err_dir = os.path.join(stderr_dir, job.index)
+        os.makedirs(sub_job_dir, exist_ok=True)
+        os.makedirs(sub_out_dir, exist_ok=True)
+        os.makedirs(sub_err_dir, exist_ok=True)
 
 
 def build_job_scripts(root_dir, jobs):
@@ -153,8 +166,10 @@ def build_job_scripts(root_dir, jobs):
     """
     # Loop over the job list, creating each job script in turn, and then adding
     # scriptPath to the Job object
+    job_dir = os.path.join(root_dir, "sge/jobs")
     for job in jobs:
-        scriptpath = os.path.join(root_dir, "jobs", job.name)
+        subjob_dir = os.path.join(job_dir, job.index)
+        scriptpath = os.path.join(subjob_dir, job.name)
         with open(scriptpath, "w") as scriptfile:
             scriptfile.write("#!/bin/sh\n#$ -S /bin/bash\n%s\n" % job.script)
         job.scriptpath = scriptpath
@@ -187,8 +202,8 @@ def submit_safe_jobs(root_dir, jobs, sgeargs=None):
     """
     # Loop over each job, constructing SGE command-line based on job settings
     for job in jobs:
-        job.out = os.path.join(root_dir, "stdout")
-        job.err = os.path.join(root_dir, "stderr")
+        job.out = os.path.join(root_dir, "sge/stdout/%s" % job.index)
+        job.err = os.path.join(root_dir, "sge/stderr/%s" % job.index)
 
         # Add the job name, current working directory, and SGE stdout/stderr
         # directories to the SGE command line
@@ -214,10 +229,9 @@ def submit_safe_jobs(root_dir, jobs, sgeargs=None):
             args = args[:-1]
 
         # Build the qsub SGE commandline (passing local environment)
-        qsubcmd = ("%s -V %s %s" %
-                   (pyani_config.QSUB_DEFAULT, args, job.scriptpath))
+        qsubcmd = ("%s -V %s" % (pyani_config.QSUB_DEFAULT, args))
         if sgeargs is not None:
-            qsubcmd = "%s %s" % (qsubcmd, sgeargs)
+            qsubcmd = "%s %s %s" % (qsubcmd, sgeargs, job.scriptpath)
         os.system(qsubcmd)               # Run the command
         job.submitted = True             # Set the job's submitted flag to True
 
@@ -255,6 +269,6 @@ def build_and_submit_jobs(root_dir, jobs, sgeargs=None):
         jobs = [jobs]
 
     # Build and submit the passed jobs
-    build_directories(root_dir)        # build all necessary directories
+    build_directories(root_dir, jobs)        # build all necessary directories
     build_job_scripts(root_dir, jobs)  # build job scripts
     submit_jobs(root_dir, jobs, sgeargs)        # submit the jobs to SGE
