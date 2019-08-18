@@ -91,8 +91,9 @@ def generate_nucmer_commands(
             ncmd, dcmd = construct_nucmer_cmdline(
                 fname1, fname2, outdir, str(idx), nucmer_exe, filter_exe, maxmatch
             )
-            nucmer_cmdlines.append((ncmd, str(idx)))
-            delta_filter_cmdlines.append((dcmd, str(idx)))
+            if (not ncmd is None) and (not dcmd is None):
+                nucmer_cmdlines.append((ncmd, str(idx)))
+                delta_filter_cmdlines.append((dcmd, str(idx)))
     return (nucmer_cmdlines, delta_filter_cmdlines)
 
 
@@ -134,17 +135,22 @@ def construct_nucmer_cmdline(
             os.path.splitext(os.path.split(fname2)[-1])[0],
         ),
     )
-    if maxmatch:
-        mode = "--maxmatch"
+    delta_file = os.path.join(outprefix, ".delta")
+    filter_file = os.path.join(outprefix, ".filter")
+    if (not os.path.exists(delta_file)) or (not os.path.exists(filter_file)):
+        if maxmatch:
+            mode = "--maxmatch"
+        else:
+            mode = "--mum"
+        nucmercmd = "{0} {1} -p {2} {3} {4}".format(
+            nucmer_exe, mode, outprefix, fname1, fname2
+        )
+        filtercmd = "delta_filter_wrapper.py " + "{0} -1 {1} {2}".format(
+            filter_exe, outprefix + ".delta", outprefix + ".filter"
+        )
+        return (nucmercmd, filtercmd)
     else:
-        mode = "--mum"
-    nucmercmd = "{0} {1} -p {2} {3} {4}".format(
-        nucmer_exe, mode, outprefix, fname1, fname2
-    )
-    filtercmd = "delta_filter_wrapper.py " + "{0} -1 {1} {2}".format(
-        filter_exe, outprefix + ".delta", outprefix + ".filter"
-    )
-    return (nucmercmd, filtercmd)
+        return (None, None)
     # return "{0}; {1}".format(nucmercmd, filtercmd)
 
 
