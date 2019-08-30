@@ -17,7 +17,7 @@ import os
 from collections import defaultdict
 
 from . import pyani_config
-from .pyani_jobs import JobGroup
+from .pyani_jobs import (Job, JobGroup)
 
 
 def split_seq(iterable, size):
@@ -46,12 +46,13 @@ def compile_jobgroups_from_joblist(joblist, jgprefix, sgegroupsize):
     # Break arglist up into batches of sgegroupsize (default: 10,000)
     sublists = split_seq(joblist, sgegroupsize)
     count = 0
+
     for sublist in sublists:
         count += 1
-        sge_jobcmdlist = ['\"%s\"' % jc for jc in sublist]
-        jobgroups.append(JobGroup("%s_%d" % (jgprefix, count),
-                                  "$cmds",
-                                  arguments={'cmds': sge_jobcmdlist}))
+        sge_jobcmds = ""
+        for jc in sublist:
+            sge_jobcmds += jc + "\n"
+        jobgroups.append(Job("%s_%d" % (jgprefix, count), sge_jobcmds, "0"))
     return jobgroups
 
 
