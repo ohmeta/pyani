@@ -123,17 +123,17 @@ def construct_nucmer_cmdline(
     outsubdir = os.path.join(os.path.join(outdir, pyani_config.ALIGNDIR["ANIm"]), idx)
     if not os.path.exists(outsubdir):
         os.mkdir(outsubdir)
+
     outprefix = os.path.join(
         outsubdir,
-        "%s_vs_%s"
-        % (
+        "%s_vs_%s" % (
             os.path.splitext(os.path.split(fname1)[-1])[0],
             os.path.splitext(os.path.split(fname2)[-1])[0],
         ),
     )
 
-    delta_file = os.path.join(outprefix, ".delta")
-    filter_file = os.path.join(outprefix, ".filter")
+    delta_file = outprefix + ".delta"
+    filter_file = outprefix + ".filter"
 
     nucmercmd = ""
     filtercmd = ""
