@@ -138,10 +138,10 @@ def construct_nucmer_cmdline(
     nucmercmd = ""
     filtercmd = ""
 
-    if not os.path.exists(filter_file):
+    if (not os.path.exists(filter_file)) or (os.path.getsize(filter_file) == 0):
         filtercmd = "{0} -1 {1}.delta > {2}.filter".format(
             filter_exe, outprefix, outprefix)
-        if not os.path.exists(delta_file):
+        if (not os.path.exists(delta_file)) or (os.path.getsize(delta_file) == 0):
             if maxmatch:
                 mode = "--maxmatch"
             else:
