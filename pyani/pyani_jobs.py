@@ -107,6 +107,7 @@ class JobGroup:
                     'barargs': ['a','b','c','d']}
         """
         self.name = name               # Set JobQueue name
+        self.index = "0"
         self.queue = queue             # Set SGE queue to request
         self.command = command         # Set command string
         self.dependencies = []         # Create empty list for dependencies

@@ -48,16 +48,13 @@ def generate_nucmer_jobs(
     Loop over all FASTA files, generating Jobs describing NUCmer command lines
     for each pairwise comparison.
     """
-    ncmds, fcmds = generate_nucmer_commands(
+    anim_cmds = generate_nucmer_commands(
         filenames, outdir, nucmer_exe, filter_exe, maxmatch
     )
     joblist = []
-    for idx, ncmd in enumerate(ncmds):
-        njob = pyani_jobs.Job("%s_%d-n" % (jobprefix, idx), ncmd[0], ncmd[1])
-        fjob = pyani_jobs.Job("%s_%d-f" % (jobprefix, idx), fcmds[idx][0], fcmds[idx][1])
-        fjob.add_dependency(njob)
-        # joblist.append(njob)  # not required: dependency in fjob
-        joblist.append(fjob)
+    for idx, anim_cmd in enumerate(anim_cmds):
+        anim_job = pyani_jobs.Job("%s_%d" % (jobprefix, idx), anim_cmd[0], anim_cmd[1])
+        joblist.append(anim_job)
     return joblist
 
 
@@ -85,16 +82,15 @@ def generate_nucmer_commands(
     Loop over all FASTA files generating NUCmer command lines for each
     pairwise comparison.
     """
-    nucmer_cmdlines, delta_filter_cmdlines = [], []
+    anim_cmdlines = []
     for idx, fname1 in enumerate(filenames[:-1]):
         for fname2 in filenames[idx + 1 :]:
-            ncmd, dcmd = construct_nucmer_cmdline(
+            anim_cmd = construct_nucmer_cmdline(
                 fname1, fname2, outdir, str(idx), nucmer_exe, filter_exe, maxmatch
             )
-            if (not ncmd is None) and (not dcmd is None):
-                nucmer_cmdlines.append((ncmd, str(idx)))
-                delta_filter_cmdlines.append((dcmd, str(idx)))
-    return (nucmer_cmdlines, delta_filter_cmdlines)
+            if not anim_cmd is None:
+                anim_cmdlines.append((anim_cmd, str(idx)))
+    return anim_cmdlines
 
 
 # Generate single NUCmer pairwise comparison command line from pair of
@@ -135,23 +131,29 @@ def construct_nucmer_cmdline(
             os.path.splitext(os.path.split(fname2)[-1])[0],
         ),
     )
+
     delta_file = os.path.join(outprefix, ".delta")
     filter_file = os.path.join(outprefix, ".filter")
-    if (not os.path.exists(delta_file)) or (not os.path.exists(filter_file)):
-        if maxmatch:
-            mode = "--maxmatch"
+
+    nucmercmd = ""
+    filtercmd = ""
+
+    if not os.path.exists(filter_file):
+        filtercmd = "{0} -1 {1}.delta > {2}.filter".format(
+            filter_exe, outprefix, outprefix)
+        if not os.path.exists(delta_file):
+            if maxmatch:
+                mode = "--maxmatch"
+            else:
+                mode = "--mum"
+            nucmercmd = "{0} {1} -p {2} {3} {4}".format(
+                nucmer_exe, mode, outprefix, fname1, fname2
+            )
+            return "{0}; {1}".format(nucmercmd, filtercmd)
         else:
-            mode = "--mum"
-        nucmercmd = "{0} {1} -p {2} {3} {4}".format(
-            nucmer_exe, mode, outprefix, fname1, fname2
-        )
-        filtercmd = "delta_filter_wrapper.py " + "{0} -1 {1} {2}".format(
-            filter_exe, outprefix + ".delta", outprefix + ".filter"
-        )
-        return (nucmercmd, filtercmd)
+            return "{0}".format(filtercmd)
     else:
-        return (None, None)
-    # return "{0}; {1}".format(nucmercmd, filtercmd)
+        return None
 
 
 # Parse NUCmer delta file to get total alignment length and total sim_errors

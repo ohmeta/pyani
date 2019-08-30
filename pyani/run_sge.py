@@ -41,20 +41,17 @@ def build_joblist(jobgraph):
 # Convert joblist into jobgroups
 def compile_jobgroups_from_joblist(joblist, jgprefix, sgegroupsize):
     """Return list of jobgroups, rather than list of jobs."""
-    jobcmds = defaultdict(list)
-    for job in joblist:
-        jobcmds[job.command.split(' ', 1)[0]].append(job.command)
     jobgroups = []
-    for cmds in list(jobcmds.items()):
-        # Break arglist up into batches of sgegroupsize (default: 10,000)
-        sublists = split_seq(cmds[1], sgegroupsize)
-        count = 0
-        for sublist in sublists:
-            count += 1
-            sge_jobcmdlist = ['\"%s\"' % jc for jc in sublist]
-            jobgroups.append(JobGroup("%s_%d" % (jgprefix, count),
-                                      "$cmds",
-                                      arguments={'cmds': sge_jobcmdlist}))
+    
+    # Break arglist up into batches of sgegroupsize (default: 10,000)
+    sublists = split_seq(joblist, sgegroupsize)
+    count = 0
+    for sublist in sublists:
+        count += 1
+        sge_jobcmdlist = ['\"%s\"' % jc for jc in sublist]
+        jobgroups.append(JobGroup("%s_%d" % (jgprefix, count),
+                                  "$cmds",
+                                  arguments={'cmds': sge_jobcmdlist}))
     return jobgroups
 
 

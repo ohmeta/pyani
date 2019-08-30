@@ -475,11 +475,12 @@ def make_outdir():
             shutil.rmtree(args.outdirname)
     logger.info("Creating directory %s", args.outdirname)
     try:
-        os.makedirs(args.outdirname)  # We make the directory recursively
+        os.makedirs(args.outdirname, exist_ok=True)  # We make the directory recursively
         # Depending on the choice of method, a subdirectory will be made for
         # alignment output files
         if args.method != "TETRA":
-            os.makedirs(os.path.join(args.outdirname, ALIGNDIR[args.method]))
+            os.makedirs(os.path.join(args.outdirname, ALIGNDIR[args.method]),
+                        exist_ok=True)
     except OSError:
         # This gets thrown if the directory exists. If we've forced overwrite/
         # delete and we're not clobbering, we let things slide
@@ -526,6 +527,7 @@ def calculate_anim(infiles, org_lengths):
     comparison.
     """
     logger.info("Running ANIm")
+    logger.info("Total ANIm calculation: %d" % (len(infiles) * (len(infiles) - 1) // 2))
     logger.info("Generating NUCmer command-lines")
     deltadir = os.path.join(args.outdirname, ALIGNDIR["ANIm"])
     logger.info("Writing nucmer output to %s", deltadir)
@@ -539,6 +541,7 @@ def calculate_anim(infiles, org_lengths):
             maxmatch=args.maxmatch,
             jobprefix=args.jobprefix,
         )
+        logger.info("Total ANIm calculation(real world): %d" % len(joblist))
         if args.scheduler == "multiprocessing":
             logger.info("Running jobs with multiprocessing")
             if args.workers is None:
@@ -550,9 +553,7 @@ def calculate_anim(infiles, org_lengths):
             )
             logger.info("Cumulative return value: %d", cumval)
             if 0 < cumval:
-                logger.warning(
-                    "At least one NUCmer comparison failed. " + "ANIm may fail."
-                )
+                logger.warning("At least one NUCmer comparison failed. " + "ANIm may fail.")
             else:
                 logger.info("All multiprocessing jobs complete.")
         else:
