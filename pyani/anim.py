@@ -22,6 +22,7 @@ percentage (of whole genome) for each pairwise comparison.
 """
 
 import os
+from concurrent import futures
 
 from . import pyani_config
 from . import pyani_files
@@ -211,7 +212,8 @@ def process_deltadir(delta_dir, org_lengths, logger=None):
 
     # Process .delta files assuming that the filename format holds:
     # org1_vs_org2.delta
-    for deltafile in deltafiles:
+
+    def process_delta(deltafile):
         qname, sname = os.path.splitext(os.path.split(deltafile)[-1])[0].split("_vs_")
 
         # We may have .delta files from other analyses in the same directory
@@ -222,14 +224,14 @@ def process_deltadir(delta_dir, org_lengths, logger=None):
                     "Query name %s not in input " % qname
                     + "sequence list, skipping %s" % deltafile
                 )
-            continue
+            return None, None, None, None, None, None, None
         if sname not in list(org_lengths.keys()):
             if logger:
                 logger.warning(
                     "Subject name %s not in input " % sname
                     + "sequence list, skipping %s" % deltafile
                 )
-            continue
+            return None, None, None, None, None, None, None
         tot_length, tot_sim_error = parse_delta(deltafile)
         if tot_length == 0 and logger is not None:
             if logger:
@@ -249,11 +251,17 @@ def process_deltadir(delta_dir, org_lengths, logger=None):
         except ZeroDivisionError:
             perc_id = 0  # set arbitrary value of zero identity
             results.zero_error = True
+        return qname, sname, tot_length, tot_sim_error, perc_id, query_cover, sbjct_cover
 
-        # Populate dataframes: when assigning data from symmetrical MUMmer
-        # output, both upper and lower triangles will be populated
-        results.add_tot_length(qname, sname, tot_length)
-        results.add_sim_errors(qname, sname, tot_sim_error)
-        results.add_pid(qname, sname, perc_id)
-        results.add_coverage(qname, sname, query_cover, sbjct_cover)
+    with futures.ProcessPoolExecutor() as pool:
+        for qname, sname, tot_length, tot_sim_error, perc_id, query_cover, sbjct_cover in \
+            pool.map(process_delta, deltafiles):
+            if not qname is None:
+                # Populate dataframes: when assigning data from symmetrical MUMmer
+                # output, both upper and lower triangles will be populated
+                results.add_tot_length(qname, sname, tot_length)
+                results.add_sim_errors(qname, sname, tot_sim_error)
+                results.add_pid(qname, sname, perc_id)
+                results.add_coverage(qname, sname, query_cover, sbjct_cover)
+    
     return results
